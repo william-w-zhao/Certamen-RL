@@ -1,7 +1,4 @@
-tossups_tokenized.json
-tossups_dropped.json
-tossups_clean.json
-tossups.json
+data/*.json
 
 .DS_Store
 __pycache__/
