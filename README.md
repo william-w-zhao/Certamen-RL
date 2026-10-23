@@ -1,6 +1,6 @@
 # Certamen Bot
 
-## Reproducing the clean data
+## Reproducing the clean data and train/val/test split
 
 Requires Python 3.10+ (no other packages; `pytest` only for tests).
 
@@ -11,7 +11,15 @@ Requires Python 3.10+ (no other packages; `pytest` only for tests).
    python3 scripts/preprocess.py
    ```
 
-   This reads `tossups_tokenized.json`, drops broken records (pre-2008 sets, OCR garbage, mojibake, merged questions/bonuses, visual questions, unplayable answers, two hand-checked broken sets), parses each answer line into `answer_parsed`, and writes `tossups_clean.json` and `tossups_dropped.json`. It prints how many records were dropped for each reason.
+   This reads `tossups_tokenized.json`, drops broken records (pre-2008 sets, OCR garbage, mojibake, merged questions/bonuses, visual questions, multiple-choice questions missing their options, unplayable answers, two hand-checked broken sets), parses each answer line into `answer_parsed`, and writes `tossups_clean.json` and `tossups_dropped.json`. It prints how many records were dropped for each reason.
+
+3. Make the train/val/test split:
+
+   ```bash
+   python3 scripts/split.py
+   ```
+
+   This reads `tossups_clean.json` and writes `splits.json` with the question IDs in each split. Splits are by year: 2025 sets are test, 2024 sets are val, everything earlier is train (`TEST_YEARS` and `VAL_YEARS` in the script). A train question that is a near-verbatim copy of a val/test question is removed and listed under `removed`. The split is deterministic, so rerunning it on the same clean data gives the same `splits.json`.
 
 ## Other scripts
 

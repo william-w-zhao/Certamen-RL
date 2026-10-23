@@ -38,7 +38,7 @@ def norm(text):
     text = "".join(c for c in text if not unicodedata.combining(c))
     return re.findall(r"[a-z0-9]+", text)
 
-def shingles(text, n=3):
+def get_shingles(text, n=3):
     """
     Set of word n-grams ("what author greatly", "author greatly imitated", ...).
     """
@@ -65,7 +65,7 @@ def find_duplicates(records):
     Comparing all ~400M pairs is too slow, so only compare questions that share
     at least one uncommon 3-gram (an inverted index).
     """
-    sh = [shingles(r["question"]) for r in records]
+    sh = [get_shingles(r["question"]) for r in records]
     freq = Counter(s for shingles in sh for s in shingles)
     # locations for uncommon shingles
     index = defaultdict(list)
