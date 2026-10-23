@@ -1,0 +1,187 @@
+Certamen Buzzer: RL Project Plan
+Oct 21, 2026 ·
+@William
+Overview
+We train a language model to play Certamen toss-ups: it hears a pyramidal question clue
+by clue and decides when to buzz. The research question is whether reinforcement
+learning (GRPO) teaches better buzzing than the best hand-built confidence rule on the
+same model.
+Why it is interesting: the hard part is calibration rather than knowledge. Buzz too early
+and you lose points; wait too long and another team takes the question. A model that
+knows when it knows is useful well beyond Certamen.
+Why RL: there is no correct buzz point to imitate. Only the outcome (points scored
+against opponents) tells you whether a decision was good, which is exactly the setting
+RL is built for.
+What success looks like: more points per toss-up than an expected-value buzzing rule,
+across opponents of different strengths. If RL loses, showing where and why is still a
+write-up.
+How it works
+Data
+Primary: our existing Certamen toss-ups, stored as whole questions with answers
+Splits: split by tournament and year, not at random, and remove near-duplicate
+questions across splits, since Certamen questions get reused. Hold out about 500
+toss-ups for eval.
+Decision points: each question has clue keywords (words, phrases or clauses) stored
+as strings. Players often buzz mid-word, so the model may buzz after every syllable
+inside each keyword span, and at the end of the question. Positions are character
+offsets, computed once and stored with each question, so every experiment uses
+identical decision points. Questions without keywords fall back to a decision every 5
+words.
+Certamen Buzzer: RL Project Plan
+Page 1 of 6
+Answer lines: parse each answer field into a canonical answer plus an accept list
+(English and Latin forms, alternate names).
+Episode design
+Each toss-up runs as a multi-turn conversation, so the model's cache carries over instead
+of re-reading the question every step:
+1. The user turn reveals the whole question heard so far, through the next syllable of a
+keyword, possibly mid-word ("
+…killed the Mino"). Showing the full prefix, rather than
+only the new fragment, spares the model from reassembling words across turns.
+Keywords are not marked in the text; they only decide when the model is asked.
+2. The model replies WAIT or BUZZ: <answer>
+.
+3. The episode ends on a buzz, on a simulated opponent buzz, or at the end of the
+question (where the model must answer or pass).
+Only the model's own replies get gradients; the revealed question text is masked out of
+the loss.
+Reward
+Our rules: a correct answer scores 10, a wrong answer scores 0, and a team that answers
+wrong cannot buzz again on that question; the other teams can.
+We reward the point margin rather than raw points, because Certamen is won on relative
+score and a question that goes to another team is worse than one nobody gets:
+we answer correctly → +10;
+an opponent answers correctly → −10 × w (start with w = 0.5 for two opponents, and
+treat w as an experimental knob);
+nobody answers → 0.
+There is no hand-tuned penalty for a wrong buzz. Its cost comes from the lockout: we lose
+our chance, and an opponent may take the question. A fixed penalty would teach more
+caution than the real game rewards.
+The model represents the whole team. If we later model individual players, simulated
+teammates with their own buzz positions make the cost of denying a teammate explicit. If
+our circuit awards bonus questions only to the toss-up winner, set the toss-up value to 10
+plus expected bonus points.
+Certamen Buzzer: RL Project Plan
+Page 2 of 6
+Opponents
+With no one else buzzing, the best policy is to wait until the last clue, so opponents are
+essential. Certamen rounds typically have three teams, so each question samples two
+opponent buzz positions and the earlier one counts. Three ways to model opponents, in
+order of realism:
+1. A fixed distribution over buzz position, swept from weak to strong.
+2. Positions fitted from real buzz data, for example recorded practices.
+3. Self-play: opponents are frozen earlier checkpoints of the model.
+Each simulated opponent needs an accuracy as well as a buzz position, rising toward the
+end of the question, so the simulation can decide whether an opponent actually takes a
+question after we are locked out.
+Opponents buzz after any syllable of the question, while our model buzzes only at
+syllables inside keywords; both are positions on the same syllable timeline, so buzzes are
+ordered directly. Opponents can therefore beat us in stretches with no keywords, so the
+simulation doesn't flatter the model.
+Syllable cuts multiply the decision points: a clause keyword can add 6–10 of them, so
+expect roughly 15–40 per question instead of about 5. That makes multi-turn GRPO
+episodes longer and its credit assignment noisier, and it favors the policy-only variant,
+whose cost doesn't grow with the number of decision points. If end-to-end training
+struggles, compare against a coarser grid (word ends inside keywords) as an ablation.
+Answer matcher
+Layered, cheapest first. Precision matters most: a false accept is exactly what RL learns to
+exploit.
+1. Parse each answer field into a canonical answer plus an accept list ("accept"
+, slashes,
+parentheses,
+"prompt on"). Hand-check a sample.
+2. Normalize: lowercase; strip punctuation, diacritics and macrons; drop leading articles;
+standardize dates and numbers ("44 BC" = "44 B.C.
+").
+3. Exact match against the canonical answer and accept list.
+4. Fuzzy match for spelling slips (rapidfuzz, high threshold). Never on grammar
+questions, where a one-letter difference is a wrong answer.
+5. LLM judge for the remainder: question, answer line and response in, correct or
+incorrect out. Cache every judgment.
+Certamen Buzzer: RL Project Plan
+Page 3 of 6
+6. Validate on about 200 hand-labelled (question, response) pairs that include real model
+outputs; report precision and recall.
+Baselines, training and evals
+Baselines (built before any training)
+The expected-value rule is the one to beat.
+Two training variants
+Policy only: freeze the answering model and train only the buzz decision (a small head
+on the model's hidden states) with policy gradient. Cheap, and it isolates calibration.
+End to end: GRPO on the whole 7B model, which can also get better at answering.
+Comparing the two separates "knows more" from "buzzes better.
+"
+Training setup
+Model: a dense model chosen by the bake-off below. If even the best candidate rarely
+knows the answers at the last clue, start with supervised fine-tuning on answer lines.
+GRPO: 8 episodes per question, each with different opponent draws.
+Watch: questions where all 8 episodes score the same give no learning signal. Track
+that fraction per batch and drop questions the model always gets or always misses.
+Base model bake-off
+Train a dense model first. Mixture-of-experts models are harder to RL-train: they need
+memory for every expert, and small numeric differences between the inference engine
+and the trainer can flip which expert handles a token, which destabilizes training.
+Baseline Rule
+Always wait Answer only at the end of the question
+Confidence threshold Buzz when the answer's log-probability passes a
+threshold tuned on dev
+Expected-value rule Buzz when expected points now beat estimated
+points from waiting, given the opponent model
+Certamen Buzzer: RL Project Plan
+Page 4 of 6
+Pick the smallest candidate with decent last-clue accuracy and a clear rise in accuracy
+from early to late clues.
+Accuracy test
+1. Score each held-out toss-up at every decision point, then read accuracy off at roughly
+25%, 50%, 75% and 100% of the question.
+2. Prompt for only the answer, with 3 examples from the training split; greedy decoding,
+thinking mode off, run through vLLM.
+3. Score with the answer matcher and record each answer's total log-probability (reused
+for the threshold baseline).
+4. Report an accuracy-vs-position curve per model and per category.
+5. Contamination check: suspiciously high accuracy at 25% suggests the model has seen
+the questions.
+Evals
+Points per toss-up against each opponent strength.
+Buzz-position histogram: does the policy buzz earlier against stronger opponents?
+Calibration curve: accuracy when it buzzes vs. its implied confidence.
+Clue analysis: which keyword triggers each buzz, and how accuracy jumps clue by clue.
+Questions with keyword annotations reported separately from fallback questions.
+Transfer: train on quizbowl only, test on Certamen.
+Candidate Why consider it
+Qwen3.5-9B (dense), with Qwen3.6-27B
+(dense) as the step up
+Strong multilingual knowledge; widely used
+for GRPO
+Gemma 4 31B Dense The strongest dense option; heavy to RL-
+train, so use as the step up
+Olmo 3 7B Fully open training data, so we can check
+whether our questions were in pretraining
+A frontier model via API Accuracy ceiling for reference only; never
+trained
+Certamen Buzzer: RL Project Plan
+Page 5 of 6
+Reward-hacking watchlist
+Lenient matching: vague or multi-part answers the matcher accepts. Hand-audit a
+random sample of accepted buzzes every few hundred steps.
+Opponent exploitation: a policy tuned to one fixed opponent. Always evaluate against
+opponents not seen in training.
+Checkpoint to the bucket. VMs get stopped, and Spot VMs get preempted; make
+training resumable from day one.
+Save transcripts. Dump sample episodes with rewards every few hundred steps.
+Reading them catches most reward hacking
+Layer Choice Notes
+Development Mac Data, matcher, simulator, baselines and unit
+tests; small models via MLX
+Compute Google Cloud GPU
+VMs
+Paid with our credits; stop VMs when idle
+Training verl (GRPO) Run from its Docker image
+Rollouts and
+evals
+vLLM Generation dominates wall-clock time
+Storage Cloud Storage bucket Data, checkpoints and results outlive any VM
+Logging Weights & Biases Reward, KL, buzz positions, and sample
+transcripts
+Certamen Buzzer: RL Project Plan
+Page 6 of 6

@@ -1,0 +1,8 @@
+tossups_tokenized.json
+tossups_dropped.json
+tossups_clean.json
+tossups.json
+
+.DS_Store
+__pycache__/
+.pytest_cache/
