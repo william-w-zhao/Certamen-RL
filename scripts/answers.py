@@ -1,10 +1,14 @@
 """
-Answer-line parser: turns a raw answer field into structured accept/prompt/reject lists.
+Answer-Line Parser: turns a raw answer field into structured accept/prompt/reject lists.
 
-    parse_answer("Tiberius (Sempronius) Gracchus [prompt on “gracchus”]")
-    -> {"main": "Tiberius Gracchus",
-        "accept": ["Tiberius Gracchus", "Tiberius Sempronius Gracchus"],
-        "prompt": ["gracchus"], "reject": [], "notes": [], "kind": "short", "flags": []}
+parse_answer("Tiberius (Sempronius) Gracchus [prompt on “gracchus”]")
+-> {"main": "Tiberius Gracchus",
+    "accept": ["Tiberius Gracchus", "Tiberius Sempronius Gracchus"],
+    "prompt": ["gracchus"], 
+    "reject": [], 
+    "notes": [],
+    "kind": "short", 
+    "flags": []}
 """
 
 import itertools
@@ -14,7 +18,7 @@ import random
 from collections import Counter
 from pathlib import Path
 
-# words that mark a bracket/parenthesis as an instruction to the moderator, not answer text.
+# words that mark a bracket/parenthesis as an instruction to the moderator, not answer text
 DIRECTIVE_WORDS = re.compile(
     r"\b(accept|prompt|do not|don[’']t|reject|n\.\s?b|moderator|reveal|read|respectively"
     r"|i\.e|e\.g|equivalent|either order|see b|any one|literal)", re.I
@@ -39,7 +43,7 @@ GENERIC = {
 PROMPT_TAIL = re.compile(r"\s+(with|by|before|if|until|and ask)\b.*$", re.I | re.S)
 
 # "Student should rise and say..." -- a performed answer, not text a model can give.
-ACTION = re.compile(r"^\s*(the\s+)?students?\b|\bstudents? (should|must|will)\b", re.I)
+ACTION = re.compile(r"^\s*(the\s+)?(students?|players?)\b|\b(students?|players?) (should|must|will)\b", re.I)
 
 # Word-and-meaning pairs: "Dūcō - Lead", "Moneo = I Warn", "Carō – Flesh; Carbō – Coal"
 MULTI = re.compile(r"\s[-–—=]{1,2}\s|;")
@@ -66,6 +70,9 @@ def split_top(text, sep="/"):
     return [p.strip() for p in parts if p.strip()]
 
 def squash(text):
+    """
+    Collapse whitespace and punctuation
+    """
     return re.sub(r"\s+", " ", text).strip(" ,.;:")
 
 def pull_directives(raw):

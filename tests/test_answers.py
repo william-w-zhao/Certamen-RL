@@ -79,5 +79,7 @@ def test_kinds():
     assert parse_answer("Laudo – Praise / Claudo - Close")["kind"] == "multi"
     assert parse_answer("I fear that Romulus was a king of barbarians.")["kind"] == "long"
     assert parse_answer("Student should stand and sing “Happy birthday to you”.")["kind"] == "action"
+    assert parse_answer("Player should bark like a dog")["kind"] == "action"
+    assert parse_answer("Player stands on one foot and jumps twice.")["kind"] == "action"
     assert parse_answer("See Below")["kind"] == "unusable"
     assert parse_answer("Quirinal, Viminal, Esquiline [do not read list of hills, see below]")["kind"] == "short"

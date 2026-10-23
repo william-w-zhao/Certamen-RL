@@ -1,5 +1,5 @@
 """
-Cleaning pipeline: tossups_tokenized.json -> tossups_clean.json
+Cleaning Pipeline: tossups_tokenized.json -> tossups_clean.json
 
 Outputs:
   data/tossups_clean.json    the records we keep, in the slimmed-down schema
@@ -166,7 +166,10 @@ def main():
     records = json.load(open(DATA / "tossups_tokenized.json"))
     records = [strip_invisible(r) for r in records]
 
+    # check for reasons to drop any question
     reasons_by_id = {r["_id"]["$oid"]: problems(r) for r in records}
+
+    # drop sets that seem problematic (high OCR)
     dropped_sets = bad_sets(records, reasons_by_id)
     for r in records:
         if r["setName"] in dropped_sets:
@@ -176,8 +179,10 @@ def main():
     for r in records:
         reasons = reasons_by_id[r["_id"]["$oid"]]
         out = reformat(r)
+        # if there is a reason to remove this question, drop it
         if reasons:
             dropped.append({"reasons": reasons, **out})
+        # otherwise, verify its indices and keep it
         else:
             check_offsets(out)
             kept.append(out)
@@ -185,7 +190,6 @@ def main():
     json.dump(kept, open(DATA / "tossups_clean.json", "w"), ensure_ascii=False, indent=1)
     json.dump(dropped, open(DATA / "tossups_dropped.json", "w"), ensure_ascii=False, indent=1)
 
-    # --- Report ---
     print(f"input:   {len(records)}")
     print(f"kept:    {len(kept)}")
     print(f"dropped: {len(dropped)}")

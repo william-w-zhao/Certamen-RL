@@ -25,4 +25,5 @@ Requires Python 3.10+ (no other packages; `pytest` only for tests).
 
 - `python3 scripts/audit.py` prints a read-only report on the raw data (categories, clues, duplicates, answer formats).
 - `python3 scripts/answers.py` runs the answer-line parser over the clean data and prints stats and samples.
-- `python3 -m pytest tests/` runs the answer-parser tests.
+- `python3 scripts/matcher.py` self-checks the answer matcher on the clean data: each question's own accepted/prompt/rejected answers, swapped answers from other questions, and look-alike answers (~20s).
+- `python3 -m pytest tests/` runs the answer-parser and matcher tests.

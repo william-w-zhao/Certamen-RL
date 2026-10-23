@@ -1,5 +1,5 @@
 """
-train/validation/test split: tossups_clean.json -> splits.json
+Training, Validation, Test Set Split: tossups_clean.json -> splits.json
 
 Splits by set (whole tournaments), holding out the newest years so the base model is
 least likely to have seen them. Near-duplicate questions are kept out of train when a
