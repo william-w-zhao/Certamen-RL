@@ -1,12 +1,12 @@
 """
-Train/dev/test split: tossups_clean.json -> splits.json
+train/validation/test split: tossups_clean.json -> splits.json
 
 Splits by set (whole tournaments), holding out the newest years so the base model is
 least likely to have seen them. Near-duplicate questions are kept out of train when a
-copy is in dev/test, so eval scores aren't inflated by memorized questions.
+copy is in val/test, so eval scores aren't inflated by memorized questions.
 
 Outputs:
-  data/splits.json  {"train": [ids], "dev": [ids], "test": [ids], "removed": [{id, dup_of, similarity}]}
+  data/splits.json  {"train": [ids], "val": [ids], "test": [ids], "removed": [{id, dup_of, similarity}]}
 """
 
 import json
@@ -19,7 +19,7 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 
 # held-out years (all sets from these years)
 TEST_YEARS = {2025}
-DEV_YEARS = {2024}
+VAL_YEARS = {2024}
 
 # near-duplicate question and answer rule: questions share this much of their word 3-grams AND an accepted answer
 DUP_SIMILARITY = 0.5
@@ -54,8 +54,8 @@ def answer_keys(record):
 def label(record):
     if record["year"] in TEST_YEARS:
         return "test"
-    if record["year"] in DEV_YEARS:
-        return "dev"
+    if record["year"] in VAL_YEARS:
+        return "val"
     return "train"
 
 def find_duplicates(records):
@@ -94,8 +94,8 @@ def main():
     split = [label(r) for r in records]
     dups = find_duplicates(records)
 
-    # a train record with a copy in dev/test is removed; a dev record with a copy in test too
-    rank = {"train": 0, "dev": 1, "test": 2}
+    # a train record with a copy in val/test is removed; a val record with a copy in test too
+    rank = {"train": 0, "val": 1, "test": 2}
     removed = {}
     for sim, i, j in dups:
         if rank[split[i]] == rank[split[j]]:
@@ -105,7 +105,7 @@ def main():
             removed[lo] = {"id": records[lo]["id"], "dup_of": records[hi]["id"],
                            "similarity": round(sim, 2)}
 
-    out = {"train": [], "dev": [], "test": [], "removed": list(removed.values())}
+    out = {"train": [], "val": [], "test": [], "removed": list(removed.values())}
     for i, r in enumerate(records):
         if i not in removed:
             out[split[i]].append(r["id"])
@@ -118,7 +118,7 @@ def main():
           f"({Counter(split[i] for i in removed)})")
     print()
     by_id = {r["id"]: r for r in records}
-    for name in ("train", "dev", "test"):
+    for name in ("train", "val", "test"):
         rs = [by_id[i] for i in out[name]]
         print(f"{name:5s} {len(rs):6d} records, {len({r['set'] for r in rs})} sets")
         print(f"      level    {dict(Counter(r['level'] for r in rs).most_common())}")
