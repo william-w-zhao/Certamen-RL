@@ -30,6 +30,9 @@ LEFTOVER_MARKER = re.compile(r"\bB\d\s*[+:]|(?:Novice|Intermediate|Advanced|Elit
 # questions that need a handout or shared screen ("examine this visual", "In which picture...")
 VISUAL = re.compile(r"\b(?:visuals?|pictured|pictures?|photograph|hand(?:ed)? ?out)\b|https?://", re.I)
 
+# "which of the following" with nothing after the "?": the options ended up in the answer field
+MISSING_OPTIONS = re.compile(r"\b(?:which|what) of the following\b(?:\s+\w+)?(?:,?\s*if any,?)?[^:;,“\"‘?]*\?\s*$", re.I)
+
 # sets checked by hand: ~40% of records are citations only ("Conte pp. 156, 159 /"), with misaligned answers
 BROKEN_SETS = {"Eel Elite 2021", "Premier Elite 2020"}
 
@@ -114,6 +117,8 @@ def problems(record):
         reasons.append("leftover_marker")
     if VISUAL.search(q):
         reasons.append("visual")
+    if MISSING_OPTIONS.search(q):
+        reasons.append("missing_options")
     if a.strip() and parse_answer(a)["kind"] in UNPLAYABLE_KINDS:
         reasons.append("unplayable_answer")
     return reasons
