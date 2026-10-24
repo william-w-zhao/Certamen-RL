@@ -9,6 +9,7 @@ Run:
   python3 scripts/accuracy.py --backend oracle --limit 50          # no model: checks the pipeline
   python3 scripts/accuracy.py --backend mlx --model mlx-community/Qwen3-8B-4bit --limit 20
   python3 scripts/accuracy.py --backend vllm --model Qwen/Qwen3.6-27B                # GPU VM
+  python3 scripts/accuracy.py --rescore results/accuracy_mlx_Qwen3-8B-4bit_val.jsonl  # after matcher changes
 
 Outputs:
   results/accuracy_<backend>_<model>_<split>.jsonl   one line per (question, position)
@@ -183,6 +184,28 @@ def report(rows):
         line(category, [r for r in rows if r["category"] == category])
     print("\n(prompt counts as wrong for now)")
 
+def rescore(path, records, vocab):
+    """
+    Re-judge the responses in a saved results file with the current matcher, rewrite the
+    file, and print what changed. The model's answers stay the same; only verdicts update.
+    """
+    rows = [json.loads(line) for line in open(path)]
+    changed = Counter()
+    for row in rows:
+        r = records[row["id"]]
+        verdict = judge(row["response"], r["answer_parsed"], r["category"], vocab)
+        if verdict != row["verdict"]:
+            changed[(row["verdict"], verdict)] += 1
+            row["verdict"] = verdict
+    with open(path, "w") as f:
+        for row in rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+    print(f"rescored {len(rows)} answers in {path.name}")
+    for (old, new), n in changed.most_common():
+        print(f"  {n:5d}  {old} -> {new}")
+    report(rows)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--backend", choices=BACKENDS, default="oracle")
@@ -190,12 +213,17 @@ def main():
     parser.add_argument("--split", default="val")
     parser.add_argument("--limit", type=int, help="only the first N questions (for testing)")
     parser.add_argument("--batch", type=int, default=64)
+    parser.add_argument("--rescore", type=Path, help="re-judge a saved results file (no model)")
     args = parser.parse_args()
 
     records = {r["id"]: r for r in json.load(open(DATA / "tossups_clean.json"))}
     splits = json.load(open(DATA / "splits.json"))
     points = json.load(open(DATA / "buzzpoints.json"))
     vocab = build_vocab(records.values())
+
+    if args.rescore:
+        rescore(args.rescore, records, vocab)
+        return
 
     rng = random.Random(0)
     turns = example_turns(pick_examples([records[i] for i in splits["train"]], rng), points)

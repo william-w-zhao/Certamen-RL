@@ -45,6 +45,14 @@ def test_k_kept_where_it_changes_the_answer():
     assert norm("Keres") != norm("Ceres")
     assert norm("Nike") != norm("Nice")
 
+def test_ampersand_means_and():
+    assert norm("Colō & Collīnus") == norm("Colō and Collīnus")
+    assert norm("Castor&Pollux") == norm("Castor and Pollux")
+
+def test_spelling_variants():
+    assert norm("Virgil") == norm("Vergil")
+    assert norm("Publius Virgilius Maro") == norm("Publius Vergilius Maro")
+
 # --- judge ---
 
 def test_exact_and_optional_parts():
@@ -86,6 +94,11 @@ def test_spelling_variants_are_correct_even_for_known_words():
     vocab = VOCAB | {"herakles", "heracles", "jocasta", "iocasta"}
     assert judge("Herakles", parse_answer("Heracles"), "Mythology", vocab) == "correct"
     assert judge("Jocasta", parse_answer("Iocasta"), "Mythology", vocab) == "correct"
+
+def test_found_in_first_model_run():
+    # real false rejects from the Qwen3-8B val run
+    assert judge("Colō and collīnus", parse_answer("Colō & Collīnus"), "Language", VOCAB) == "correct"
+    assert judge("Virgil", parse_answer("(Publius) Vergil(ius Maro)"), "Latin Literature", VOCAB) == "correct"
 
 def test_lone_initial_is_not_a_name():
     assert judge("Domitian’s", parse_answer("D.?"), "Roman History", VOCAB) == "wrong"

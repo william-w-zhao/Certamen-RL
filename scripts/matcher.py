@@ -43,6 +43,10 @@ ARTICLES = {"the"}
 # (Keres, Greek death spirits, aren't Ceres; Nike, the goddess, isn't "nice", from scio)
 KEEP_K = {"keres", "nike"}
 
+# accepted spellings of the same name, matched at the start of a word so endings carry over
+# ("Virgil" = "Vergil", "Virgilius" = "Vergilius"); both are real words, so fuzzy matching can't help
+SPELLING_VARIANTS = {"virgil": "vergil"}
+
 # fuzzy matching is per word: how similar a misspelled word must be, and how long
 # ("Agamemnom" vs "Agamemnon" is 0.89; "Pollux" vs "Pollio" is 0.67)
 FUZZY_THRESHOLD = 0.85
@@ -54,13 +58,17 @@ NO_FUZZY_CATEGORIES = {"Language"}
 def norm(text):
     """
     Reduce an answer to a comparable form: lowercase, no macrons/accents, no punctuation,
-    no leading article, number words as digits, j -> i and k -> c, eras as "44 bc" / "79 ad".
+    no leading article, "&" as "and", number words as digits, j -> i and k -> c,
+    known spelling variants ("Virgil" -> "Vergil"), eras as "44 bc" / "79 ad".
     """
     text = text.lower()
     for ligature, plain in LIGATURES.items():
         text = text.replace(ligature, plain)
     text = unicodedata.normalize("NFKD", text)
     text = "".join(c for c in text if not unicodedata.combining(c))
+
+    # "&" means "and" ("Colō & Collīnus" = "Colō and Collīnus")
+    text = text.replace("&", " and ")
 
     # erase periods and apostrophes
     text = re.sub(r"[.'’‘`]", "", text)
@@ -75,6 +83,8 @@ def norm(text):
     # of a Latin C ("Herakles" = "Heracles", "Kalends" = "Calends")
     words = [w.replace("j", "i") for w in words]
     words = [w if w in KEEP_K else w.replace("k", "c") for w in words]
+    for variant, standard in SPELLING_VARIANTS.items():
+        words = [standard + w[len(variant):] if w.startswith(variant) else w for w in words]
     text = " ".join(words)
 
     # handle dates
