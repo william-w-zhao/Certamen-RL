@@ -21,6 +21,14 @@ Requires Python 3.10+ (no other packages; `pytest` only for tests).
 
    This reads `tossups_clean.json` and writes `splits.json` with the question IDs in each split. Splits are by year: 2025 sets are test, 2024 sets are val, everything earlier is train (`TEST_YEARS` and `VAL_YEARS` in the script). A train question that is a near-verbatim copy of a val/test question is removed and listed under `removed`. The split is deterministic, so rerunning it on the same clean data gives the same `splits.json`.
 
+4. Compute the buzzpoints (where the model may buzz):
+
+   ```bash
+   python3 scripts/buzzpoints.py
+   ```
+
+   This reads `tossups_clean.json` and writes `buzzpoints.json`: for each question ID, the character offsets where the model gets a chance to buzz. That's after every syllable inside a clue span plus the end of the question, or every `FALLBACK_K` (3) words for questions without clues.
+
 ## Other scripts
 
 - `python3 scripts/audit.py` prints a read-only report on the raw data (categories, clues, duplicates, answer formats).
