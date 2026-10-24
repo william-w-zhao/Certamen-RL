@@ -1,4 +1,5 @@
-data/*.json
+data/
+results/
 
 .DS_Store
 __pycache__/
